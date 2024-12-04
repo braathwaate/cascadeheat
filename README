@@ -1,0 +1,26 @@
+ozwcp is running as a service
+if necessary, use sudo service ozwcp restart
+
+The debug log is in /var/log/ozwcp.log
+
+The output log is in /home/ubuntu/open-zwave-control-panel/OZW2_Log.txt.
+This is used by readoz.sh instead of ozwcp.log because it is much shorter
+and doesn't get moved around by the log daemon.
+
+If the z-wave hub is reset, all the devices need to be added again.
+To add a device, use the web page and Add Device.
+
+To add the thermostat,
+press both buttons for 3 seconds, then press them again to activate the inclusion,
+up button, and then press both buttons again to accept the change.
+Then the ON will flash rapidly.
+
+To add the Aeotec aërQ
+1 short press used for immediate report
+3 short press used to pair and unpair
+
+Remove the battery cover of the deadbolt. 3.Press then release the button on the PCB.4.An LED will flash amber indicating the Add or Inclusion process is in progress. If the Security Scheme is Security 2 (S2), verify the DSK of the lock at the Z-Wave Controller. The PIN Code portion of the Z-Wave DSK will be needed.5.When a green LED turns ON, the Add or Inclusion has completed successfully. 6.If a red LED turns ON, try repeating steps
+
+
+run testinit.sh to initialize ozwcp
+then nohup ./cheat.sh &
