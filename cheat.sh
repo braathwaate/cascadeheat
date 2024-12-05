@@ -7,14 +7,16 @@ type -P sexpect >& /dev/null || exit 1
 
 sexpect spawn -idle 10 -timeout 600 ./readoz.sh
 
-lastchg=0
 lasthour=0
 temp=
 droptemp=0
+bumpup=0
+setback=1
 
 settemp()
 {
-    curl -s -d "2-THERMOSTAT SETPOINT-user-decimal-1-1=$1" -X POST http://192.168.10.145:8091/valuepost.html
+    echo settemp $1 $2
+    curl -s -d "$1-THERMOSTAT SETPOINT-user-decimal-1-1=$2" -X POST http://192.168.10.145:8091/valuepost.html
 }
 
 while true
@@ -60,8 +62,12 @@ do
         elif [[ $out == *Class\ MANUFACTURER\ * ]]; then
 	    mf=${out##*ValueAsString} 
 	    echo "$d $node Manufacturer is $mf"
-        elif [[ $out == *Class\ THERMOSTAT\ * ]]; then
+        elif [[ $out == *Class\ THERMOSTAT\ OPERATING\ STATE\ * ]]; then
+	    state=${out##*ValueAsString} 
+        elif [[ $out == *Class\ THERMOSTAT\ SETPOINT\ * ]]; then
 	    setpoint=${out##*ValueAsString} 
+            setpoint=${setpoint%%.*}
+	    setpts[$node]=$setpoint
 	    echo "$d $node Thermostat Setpoint is $setpoint"
         elif [[ $out == *Class\ SENSOR\ *Index\ 1\ * ]]; then
 	    ttemp=${out##*ValueAsString} 
@@ -80,17 +86,48 @@ do
     # testing
     # continue
 
-    # turn down the heat at 11 am each day if unoccupied
-
     today=`date +%d`
     hour=`date +%H`
+    day=`date +%a`
     # usbtemp=`digitemp_DS9097 -q -t 0 -c .digitemprc`
 
-    if [ $lasthour != $hour ] && [ $hour = "10" ]  ; then
-        echo "temp" $temp
-        for i in ${!ttemps[@]}; do
-            echo "ttemp" $i ${ttemps[$i]}
-        done
+    if [ $lasthour != $hour ] ; then
+	lasthour=$hour
+	echo $day $hour
+	if [ $day != "Sun" ] && [ $hour = "04" -o $hour = "16" ]  ; then
+	    echo "bump up"
+            echo "temp" $temp
+	    bumpup=1
+            for i in ${!ttemps[@]}; do
+                echo "ttemp" $i ${ttemps[$i]}
+            done
+
+            for i in ${!setpts[@]}; do
+		setpoint=${setpts[$i]}
+                echo "setpt" $i $setpoint
+		old_setpts[$i]=$setpoint
+
+		if [ $setpoint = "58" ] ; then
+			setpoint=72
+		else
+			setpoint=$((setpoint + 3))
+		fi
+		settemp $i $setpoint
+		save_setpts[$i]=$setpoint
+            done
+	fi
+
+	if [ $day != "Sun" ] && [ $bumpup = 1 ] && [ $hour = "06" -o $hour = "17" ]  ; then
+	    echo "bump down"
+	    bumpup=0
+
+            for i in ${!old_setpts[@]}; do
+		 if [ $save_setpts[$i] = $setpts[$i] ] ; then
+		    settemp $i ${old_setpts[$i]}
+		 fi
+	    done
+	fi
+
         # echo "usb temp $usbtemp"
 
         # if [[ "$temp" = "" ]] ; then
@@ -99,14 +136,23 @@ do
        #  fi
         tempint=${temp%.*}
 
-	lastchg=$today
 
         # check vrc
 	vrc=`wget -q -O- http://voicedatac.com:8102/behrsj/cgi-bin/vrc.php | grep rented`
 
         # if unit is not rented today, turn down the thermostat
-	if [ "$vrc" = "not rented" ] ; then
-		settemp 45
+	if [ "$vrc" = "not rented" ] && [ $hour = "11" ] ; then
+	    setback=1
+            for i in ${!setpts[@]}; do
+		settemp $i 45
+	    done
+	fi
+
+	if [ "$vrc" = "rented" ] && [ $hour = "09" ] && [ $setback = "1" ] ; then
+	    setback=0
+            for i in ${!setpts[@]}; do
+		settemp $i 68
+	    done
 	fi
     fi
 
