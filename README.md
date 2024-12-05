@@ -26,30 +26,31 @@ This is useful for cost-saving because of an extreme time-of-use pricing differe
 ozwcp is run as a service
 
 vi /etc/systemd/system/ozwcp.service
-[Unit]
-Description=OpenZWave Control Panel
-After=network.target
 
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/home/ubuntu/open-zwave-control-panel
-ExecStart=/home/ubuntu/open-zwave-control-panel/ozwcp -p 8091 -c /home/ubuntu/config > /home/ubuntu/open-zwave-control-panel/OZW2_Log.txt
-Restart=on-failure
+	[Unit]
+	Description=OpenZWave Control Panel
+	After=network.target
 
-[Install]
-WantedBy=multi-user.target
+	[Service]
+	Type=simple
+	User=root
+	WorkingDirectory=/home/ubuntu/open-zwave-control-panel
+	ExecStart=/home/ubuntu/open-zwave-control-panel/ozwcp -p 8091 -c /home/ubuntu/config > /home/ubuntu/open-zwave-control-panel/OZW2_Log.txt
+	Restart=on-failure
+
+	[Install]
+	WantedBy=multi-user.target
 
 if necessary, use sudo service ozwcp restart
 
 /etc/rsyslog.d/10-ozwcp.conf
 
-if ( $programname == "ozwcp" ) then {
-    action(type="omfile" file="/var/log/ozwcp.log" flushOnTXEnd="on")
-    stop
-}
+	if ( $programname == "ozwcp" ) then {
+	    action(type="omfile" file="/var/log/ozwcp.log" flushOnTXEnd="on")
+	    stop
+	}
 
-The debug log is in /var/log/ozwcp.log
+This puts the ozwcp debug log in /var/log/ozwcp.log rather than syslog.
 
 The output log is in /home/ubuntu/open-zwave-control-panel/OZW2_Log.txt.
 This is used by readoz.sh instead of ozwcp.log because it is much shorter
