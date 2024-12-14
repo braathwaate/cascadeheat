@@ -21,7 +21,7 @@ This is useful for cost-saving because of an extreme time-of-use pricing differe
 * Aeotec Limited ZWA009 AërQ Temperature & Humidity Sensor
 * Schlage (Allegion) BE469ZP Connect Smart Deadbolt
 
-# Installation Notes
+# Configuration
 
 ozwcp is run as a service
 
@@ -55,6 +55,24 @@ This puts the ozwcp debug log in /var/log/ozwcp.log rather than syslog.
 The output log is in /home/ubuntu/open-zwave-control-panel/OZW2_Log.txt.
 This is used by readoz.sh instead of ozwcp.log because it is much shorter
 and doesn't get moved around by the log daemon.
+
+Port Forwarding with Apache2
+
+        <Location "/">
+                AuthType Basic
+                AuthName "Restricted Content"
+                AuthUserFile /etc/apache2/.htpasswd
+                Require valid-user
+        </Location>
+
+        ProxyPreserveHost On
+        ProxyRequests Off
+        # ServerName www.example.com
+        # ServerAlias example.com
+        ProxyPass / http://localhost:8091/
+        ProxyPassReverse / http://localhost:8091/
+
+# Installation Notes
 
 If the z-wave hub is reset, all the devices need to be added again.
 To add a device, use the web page and Add Device.

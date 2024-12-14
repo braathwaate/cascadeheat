@@ -11,7 +11,8 @@ lasthour=0
 temp=
 droptemp=0
 bumpup=0
-setback=1
+setback=0
+firsterr=0
 
 settemp()
 {
@@ -21,7 +22,7 @@ settemp()
 
 while true
 do
-    sexpect expect -cstr -re '[^\n\r]*ValueAsString[^\n\r]*' > /dev/null
+    errmsg=`sexpect expect -cstr -re '[^\n\r]*ValueAsString[^\n\r]*' 2>&1`
     ret=$?
     if [[ $ret == 0 ]]; then
         out=$( sexpect expect_out )
@@ -29,7 +30,7 @@ do
 	d=${out%%Info*}
 	node=${out##*Node} 
         node=${node%%Genre*}
-        if [[ $out == *Node\ 1*Index* ]]; then
+        if [[ $out == *Node\ 1\ *Index* ]]; then
 	    echo "$d Controller"
         elif [[ $out == *Node\ 3*Index\ 1\ * ]]; then
 	    temp=${out##*ValueAsString} 
@@ -62,6 +63,14 @@ do
         elif [[ $out == *Class\ MANUFACTURER\ * ]]; then
 	    mf=${out##*ValueAsString} 
 	    echo "$d $node Manufacturer is $mf"
+        elif [[ $out == *Class\ VERSION\ * ]]; then
+	    ver=${out##*ValueAsString} 
+	    echo "$d $node Version is $ver"
+        elif [[ $out == *Class\ ZWAVE\ * ]]; then
+	    zw=${out##*ValueAsString} 
+	    echo "$d $node Zwave is $zw"
+        elif [[ $out == *Class\ THERMOSTAT\ MODE\ * ]]; then
+	    mode=${out##*ValueAsString} 
         elif [[ $out == *Class\ THERMOSTAT\ OPERATING\ STATE\ * ]]; then
 	    state=${out##*ValueAsString} 
         elif [[ $out == *Class\ THERMOSTAT\ SETPOINT\ * ]]; then
@@ -79,6 +88,12 @@ do
           # Timed out waiting for the expected output
 	  # clear temp to use usbtemp later
 	  temp=
+    elif [ $ret = 204 ] ; then
+	   if [ $firsterr = 0 ] ; then
+		echo $errmsg
+		firsterr=1
+	   fi
+	   sleep 5
     else
 	    echo "rc=$ret"
     fi
@@ -104,7 +119,6 @@ do
 
             for i in ${!setpts[@]}; do
 		setpoint=${setpts[$i]}
-                echo "setpt" $i $setpoint
 		old_setpts[$i]=$setpoint
 
 		if [ $setpoint = "58" ] ; then
