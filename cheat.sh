@@ -19,6 +19,18 @@ settemp()
     curl -s -d "$1-THERMOSTAT SETPOINT-user-decimal-1-1=$2" -X POST http://192.168.10.145:8091/valuepost.html
 }
 
+bumpdown()
+{
+    bumpup=0
+    echo "bump down"
+
+    for i in ${!old_setpts[@]}; do
+	 if [ ${save_setpts[$i]} = ${setpts[$i]} ] ; then
+	    settemp $i ${old_setpts[$i]}
+	 fi
+    done
+}
+
 while true
 do
     errmsg=`sexpect expect -cstr -re '[^\n\r]*ValueAsString[^\n\r]*' 2>&1`
@@ -95,6 +107,9 @@ do
 	 echo $errmsg
 	 echo "rc=$ret"
 	 ps -fu ubuntu
+	 if [ $bumpup = 1 ] ; then
+		 bumpdown
+	 fi
 	 exit $ret
     fi
 
@@ -168,14 +183,7 @@ do
 	fi
 
 	if [ $bumpup = 1 ] && [ $hour = "06" -o $hour = "17" ]  ; then
-	    echo "bump down"
-	    bumpup=0
-
-            for i in ${!old_setpts[@]}; do
-		 if [ ${save_setpts[$i]} = ${setpts[$i]} ] ; then
-		    settemp $i ${old_setpts[$i]}
-		 fi
-	    done
+	    bumpdown
 	fi
 
         # echo "usb temp $usbtemp"
@@ -188,7 +196,7 @@ do
 
 
         # check vrc
-	vrc=`wget -q -O- http://voicedatac.com:8102/behrsj/cgi-bin/vrc.php | grep rented`
+	vrc=`wget -q -O- http://voicedata/behrsj/cgi-bin/vrc.php | grep rented`
 
         # if unit is not rented today, prepare turn down the thermostat
 	# keeping the heat on until next peak for housekeeping
