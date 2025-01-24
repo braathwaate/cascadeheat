@@ -68,6 +68,9 @@ do
 	    lock=${out##*ValueAsString} 
 	    echo "$d Lock $lock"
 	    # send email when unit is locked or unlocked
+	    if [ $setback = "1" ] ; then
+		    echo | mutt -s "Lock $lock at unit 59" -- behrsj@voicedata
+	    fi
         elif [[ $out == *Class\ POWERLEVEL\ * ]]; then
 	    pl=${out##*ValueAsString} 
 	    echo "$d $node Power Level is $pl"
@@ -89,13 +92,24 @@ do
             setpoint=${setpoint%%.*}
 	    setpts[$node]=$setpoint
 	    echo "$d $node Thermostat Setpoint is $setpoint"
+
+	    # send email if high setpoint is set when unoccupied
+	    # do not automatically override
+	    # because of rental not on calendar (late exit, unscheduled use, etc)
+	    # manual investigation is required
 	    if [ $setpoint -gt 68 ] && [ $setback = "1" ] ; then
-		    echo "Attempted high setpoint override"
-		    settemp $node 68
+		    echo | mutt -s "High Setpoint $node $setpoint at unit 59" -- behrsj@voicedata
 	    fi
         elif [[ $out == *Class\ SENSOR\ *Index\ 1\ * ]]; then
 	    ttemp=${out##*ValueAsString} 
 	    ttemps[$node]=$ttemp
+
+	    # this automatically adds the node to the setpoint list
+	    # useful after a restart
+	    if [ "${setpts[$node]}" = "" ]; then
+		    echo Found $node.  Added setpoint 68.
+		    setpts[$node]=68
+	    fi
         else
             echo "unknown ValueAsString: $out"
         fi
@@ -125,12 +139,41 @@ do
     if [ $lasthour != $hour ] ; then
 	lasthour=$hour
 	echo $day $hour
-	if [ $mon = "11" -o $mon = "12" -o $mon = "01" -o $mon = "02" -o $mon = "03" -o $mon = "04" ] \
-	    && [ $hour = "04" -o $hour = "16" ]  ; then
-	    for i in ${!ttemps[@]}; do
-		echo "ttemp" $i ${ttemps[$i]}
-	    done
-	    echo "temp" $temp
+
+	# echo "usb temp $usbtemp"
+
+	# if [[ "$temp" = "" ]] ; then
+	#    usbtemp=${usbtemp##*F:}
+	#   temp=$usbtemp
+        # fi
+	tempint=${temp%.*}
+
+	# change thermstat setpoints during cold months
+	if [ $mon = "11" -o $mon = "12" -o $mon = "01" -o $mon = "02" -o $mon = "03" -o $mon = "04" ] ; then
+	    # check vrc
+	    vrc=`wget -q -O- http://voicedata/behrsj/cgi-bin/vrc.php | grep rented`
+
+	    # if unit is not rented today, prepare turn down the thermostat
+	    # keeping the heat on until next peak for housekeeping
+	    if [ "$vrc" = "not rented" ] && [ $setback = "0" ] && [ $hour = "16" ] ; then
+	        setback=1
+	    fi
+
+	    # As soon as the unit shows as rented for the day, raise the temperature to 68 degrees
+	    # Normally this is midnight for reservations made in advance
+	    # This will easily get the condo up to temperature by noon.
+	    if [ "$vrc" = "rented" ] && [ $setback = "1" ] ; then
+	        setback=0
+	        for i in ${!setpts[@]}; do
+		    settemp $i 68
+	        done
+	    fi
+
+	    if [ $hour = "04" -o $hour = "16" ]  ; then
+	        for i in ${!ttemps[@]}; do
+		    echo "ttemp" $i ${ttemps[$i]}
+	        done
+	        echo "temp" $temp
 
 		if [ -f setbacks ] ; then
 		    echo "bump up"
@@ -155,61 +198,29 @@ do
 			save_setpts[$i]=$setpoint
 		    done
 		elif [ $day != "Sun" ] ; then
-		    echo "bump up"
-		    bumpup=1
-
-		    for i in ${!setpts[@]}; do
-			setpoint=${setpts[$i]}
-
-			# rental day, but not yet 9 AM
-			# get a jump on raising the temperature at 9 AM
-			if [ "$vrc" = "rented" ] && [ $setback = "1" ] ; then
-				old_setpts[$i]=45
-				setpoint=68
-			# not rented, after 11 AM of first day
-			# this lowers temps before peak each day
+			# if not rented
+			# force 48 degrees at 4 PM peak each day
 			# in order to thwart the cleaning staff
-			elif [ $setback = "1" ] ; then
+			# and at 4 AM thereafter
+			# note if rented, do not muck with setpoints
+			if [ $setback = "1" ] ; then
+			    echo "bump up"
+			    bumpup=1
+
+			    for i in ${!setpts[@]}; do
 				old_setpts[$i]=45
-				setpoint=48
-			else
-				old_setpts[$i]=$setpoint
-				setpoint=$((setpoint + 3))
+				settemp $i 48
+				save_setpts[$i]=48
+			    done
 			fi
-			settemp $i $setpoint
-			save_setpts[$i]=$setpoint
-		    done
 		fi
+	    fi
 	fi
 
 	if [ $bumpup = 1 ] && [ $hour = "06" -o $hour = "17" ]  ; then
 	    bumpdown
 	fi
 
-        # echo "usb temp $usbtemp"
-
-        # if [[ "$temp" = "" ]] ; then
-         #    usbtemp=${usbtemp##*F:}
-          #   temp=$usbtemp
-       #  fi
-        tempint=${temp%.*}
-
-
-        # check vrc
-	vrc=`wget -q -O- http://voicedata/behrsj/cgi-bin/vrc.php | grep rented`
-
-        # if unit is not rented today, prepare turn down the thermostat
-	# keeping the heat on until next peak for housekeeping
-	if [ "$vrc" = "not rented" ] && [ $hour = "11" ] ; then
-	    setback=1
-	fi
-
-	if [ "$vrc" = "rented" ] && [ $hour = "09" ] && [ $setback = "1" ] ; then
-	    setback=0
-            for i in ${!setpts[@]}; do
-		settemp $i 68
-	    done
-	fi
     fi
 
 done
