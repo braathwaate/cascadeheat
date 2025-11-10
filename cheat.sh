@@ -12,11 +12,12 @@ temp=
 droptemp=0
 bumpup=0
 setback=0
+vrc="unknown"
 
 settemp()
 {
     echo settemp $1 $2
-    curl -s -d "$1-THERMOSTAT SETPOINT-user-decimal-1-1=$2" -X POST http://192.168.10.145:8091/valuepost.html
+    curl -s -d "$1-THERMOSTAT SETPOINT-user-decimal-1-1=$2" -X POST http://127.0.0.1:8091/valuepost.html
 }
 
 bumpdown()
@@ -55,20 +56,20 @@ do
         elif [[ $out == *Node\ 3* ]]; then
 	    val=${out##*ValueAsString} 
 	    echo "$d Value $val"
-        elif [[ $out == *Node\ 16*Class\ BATTERY* ]]; then
+        elif [[ $out == *Node\ 22*Class\ BATTERY* ]]; then
 	    batt=${out##*ValueAsString} 
 	    echo "$d Lock Battery $batt"
-        elif [[ $out == *Node\ 16*Class\ USER\ CODE* ]]; then
+        elif [[ $out == *Node\ 22*Class\ USER\ CODE* ]]; then
 	    code=${out##*ValueAsString} 
 	    echo "$d Lock Code $code"
-        elif [[ $out == *Node\ 16*Class\ ALARM* ]]; then
+        elif [[ $out == *Node\ 22*Class\ ALARM* ]]; then
 	    alarm=${out##*ValueAsString} 
 	    echo "$d Lock Alarm $alarm"
-        elif [[ $out == *Node\ 16* ]]; then
+        elif [[ $out == *Node\ 22* ]]; then
 	    lock=${out##*ValueAsString} 
 	    echo "$d Lock $lock"
 	    # send email when unit is locked or unlocked
-	    if [ $setback = "1" ] ; then
+	    if [ "$vrc" = "not rented" ] ; then
 		    echo | mutt -s "Lock $lock at unit 59" -- behrsj@voicedata
 	    fi
         elif [[ $out == *Class\ POWERLEVEL\ * ]]; then
@@ -97,7 +98,7 @@ do
 	    # do not automatically override
 	    # because of rental not on calendar (late exit, unscheduled use, etc)
 	    # manual investigation is required
-	    if [ $setpoint -gt 68 ] && [ $setback = "1" ] ; then
+	    if [ $setpoint -gt 68 ] && [ "$vrc" = "not rented" ] ; then
 		    echo | mutt -s "High Setpoint $node $setpoint at unit 59" -- behrsj@voicedata
 	    fi
         elif [[ $out == *Class\ SENSOR\ *Index\ 1\ * ]]; then
@@ -148,10 +149,17 @@ do
         # fi
 	tempint=${temp%.*}
 
+        # check vrc
+	if [ -f voicedata ] ; then
+		vrc=`wget -q -O- http://voicedata/behrsj/cgi-bin/vrc.php | grep rented`
+	else
+		vrc="unknown"
+		setback=0
+	fi
+
+
 	# change thermstat setpoints during cold months
 	if [ $mon = "11" -o $mon = "12" -o $mon = "01" -o $mon = "02" -o $mon = "03" -o $mon = "04" ] ; then
-	    # check vrc
-	    vrc=`wget -q -O- http://voicedata/behrsj/cgi-bin/vrc.php | grep rented`
 
 	    # if unit is not rented today, prepare turn down the thermostat
 	    # keeping the heat on until next peak for housekeeping
@@ -175,7 +183,7 @@ do
 	        done
 	        echo "temp" $temp
 
-		if [ -f setbacks ] ; then
+		if [ -f setbacks ] && [ $day != "Sun" ] ; then
 		    echo "bump up"
 		    bumpup=1
 
@@ -197,22 +205,20 @@ do
 			settemp $i $setpoint
 			save_setpts[$i]=$setpoint
 		    done
-		elif [ $day != "Sun" ] ; then
+		elif [ $setback = "1" ] ; then
 			# if not rented
 			# force 48 degrees at 4 PM peak each day
 			# in order to thwart the cleaning staff
 			# and at 4 AM thereafter
 			# note if rented, do not muck with setpoints
-			if [ $setback = "1" ] ; then
-			    echo "bump up"
-			    bumpup=1
+		    echo "bump up"
+		    bumpup=1
 
-			    for i in ${!setpts[@]}; do
-				old_setpts[$i]=45
-				settemp $i 48
-				save_setpts[$i]=48
-			    done
-			fi
+		    for i in ${!setpts[@]}; do
+			old_setpts[$i]=45
+			settemp $i 48
+			save_setpts[$i]=48
+		    done
 		fi
 	    fi
 	fi
