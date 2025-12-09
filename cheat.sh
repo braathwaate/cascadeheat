@@ -11,7 +11,7 @@ lasthour=0
 temp=
 droptemp=0
 bumpup=0
-setback=0
+setback=1
 vrc="unknown"
 
 settemp()
@@ -132,7 +132,7 @@ do
     # continue
 
     today=`date +%d`
-    hour=`date +%H`
+    hour=`date +%H --date="10 minutes today"`
     day=`date +%a`
     mon=`date +%m`
     # usbtemp=`digitemp_DS9097 -q -t 0 -c .digitemprc`
@@ -207,7 +207,7 @@ do
 		    done
 		elif [ $setback = "1" ] ; then
 			# if not rented
-			# force 48 degrees at 4 PM peak each day
+			# force 50 degrees at 4 PM peak each day
 			# in order to thwart the cleaning staff
 			# and at 4 AM thereafter
 			# note if rented, do not muck with setpoints
@@ -216,8 +216,8 @@ do
 
 		    for i in ${!setpts[@]}; do
 			old_setpts[$i]=45
-			settemp $i 48
-			save_setpts[$i]=48
+			settemp $i 50
+			save_setpts[$i]=50
 		    done
 		fi
 	    fi
