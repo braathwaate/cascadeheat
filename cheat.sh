@@ -44,16 +44,16 @@ do
         node=${node%%Genre*}
         if [[ $out == *Node\ 1\ *Index* ]]; then
 	    echo "$d Controller"
-        elif [[ $out == *Node\ 3*Index\ 1\ * ]]; then
+        elif [[ $out == *Node\ 23*Index\ 1\ * ]]; then
 	    temp=${out##*ValueAsString} 
 	    echo "$d Temperature is $temp"
-        elif [[ $out == *Node\ 3*Index\ 5* ]]; then
+        elif [[ $out == *Node\ 23*Index\ 5* ]]; then
 	    hum=${out##*ValueAsString} 
 	    echo "$d Humidity is $hum"
-        elif [[ $out == *Node\ 3*Index\ 11\ * ]]; then
+        elif [[ $out == *Node\ 23*Index\ 11\ * ]]; then
 	    dew=${out##*ValueAsString} 
 	    echo "$d Dew Point is $dew"
-        elif [[ $out == *Node\ 3* ]]; then
+        elif [[ $out == *Node\ 23* ]]; then
 	    val=${out##*ValueAsString} 
 	    echo "$d Value $val"
         elif [[ $out == *Node\ 22*Class\ BATTERY* ]]; then
@@ -207,7 +207,7 @@ do
 		    done
 		elif [ $setback = "1" ] ; then
 			# if not rented
-			# force 50 degrees at 4 PM peak each day
+			# force 52 degrees at 4 PM peak each day
 			# in order to thwart the cleaning staff
 			# and at 4 AM thereafter
 			# note if rented, do not muck with setpoints
@@ -216,8 +216,8 @@ do
 
 		    for i in ${!setpts[@]}; do
 			old_setpts[$i]=45
-			settemp $i 50
-			save_setpts[$i]=50
+			settemp $i 52
+			save_setpts[$i]=52
 		    done
 		fi
 	    fi
